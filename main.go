@@ -10,8 +10,6 @@ import (
 	// "github.com/gofrs/uuid"
 )
 
-// parse templates
-
 func main() {
 	// set port
 	port := os.Getenv("PORT")

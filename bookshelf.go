@@ -21,7 +21,19 @@ type Book struct {
 type BookDatabase interface {
 	// takes a context variable (for canceling and deadlines)
 	// returns list of books, ordered by title
-	// ListBooks(context.Context) ([]*Book, error)
+	ListBooks(context.Context) ([]*Book, error)
+
+	// get an entry as a reference
+	GetBook(context.Context, id string) (*Book, error)
+
+	// add entry
+	AddBook(context.Context, b *Book) (id string, error)
+
+	// delete entry
+	DeleteBook(context.Context, id string) error
+
+	// update entry
+	UpdateBook(context.Context, b *Book) error
 
 	// [the above to be added back in once actions are considered]
 }
@@ -41,8 +53,4 @@ func NewBookshelf(db BookDatabase) (*Bookshelf, error) {
 		logWriter: os.Stderr
 	}
 	return b, nil
-}
-
-func (*Bookshelf) listHandler(http.ResponseWriter, *http.Request) *appError {
-	
 }
