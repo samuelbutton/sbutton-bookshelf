@@ -1,8 +1,13 @@
 package main
 
 import (
-	"os"
+	"context"
+	"fmt"
 	"io"
+	"os"
+
+	// "cloud.google.com/go/errorreporting"
+	"cloud.google.com/go/storage"
 )
 
 // Book is a structure that holds metadata about a book
@@ -19,38 +24,44 @@ type Book struct {
 
 // BookDatabase provides a thread safe interface
 type BookDatabase interface {
-	// takes a context variable (for canceling and deadlines)
-	// returns list of books, ordered by title
 	ListBooks(context.Context) ([]*Book, error)
-
-	// get an entry as a reference
 	GetBook(context.Context, id string) (*Book, error)
-
-	// add entry
 	AddBook(context.Context, b *Book) (id string, error)
-
-	// delete entry
 	DeleteBook(context.Context, id string) error
-
-	// update entry
 	UpdateBook(context.Context, b *Book) error
-
-	// [the above to be added back in once actions are considered]
 }
 
 type Bookshelf struct {
 	DB        BookDatabase
+	StorageBucket     *storage.BucketHandle
+	StorageBucketName string
 	logWriter io.Writer
-	// potentially add in storage bucket from GCP
-	// missing some kind of storage infrastructure
+	// errorClient *errorreporting.Client
 }
 
 func NewBookshelf(db BookDatabase) (*Bookshelf, error) {
 	ctx := context.Background()
 
+	bucketName := projectID + "_bucket"
+	storageClient, err := storage.NewClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("storage.NewClient: %v", err)
+	}
+	// errorClient, err := errorreporting.NewClient(ctx, projectID, errorreporting.Config{
+	// 	ServiceName: "bookshelf", // need to do something about this, add in some kind of service on GCP
+	// 	OnError: func(err error) {
+	// 		fmt.Fprintf(os.Stderr, "Could not log error: %v", err)
+	// 	},
+	// })
+	// if err != nil {
+	// 	return nil, fmt.Errorf("errorreporting.NewClient: %v", err)
+	// }
 	b := &Bookshelf{
-		DB: db,
-		logWriter: os.Stderr
+		logWriter:         os.Stderr,
+		// errorClient:       errorClient,
+		DB:                db,
+		StorageBucketName: bucketName,
+		StorageBucket:     storageClient.Bucket(bucketName),
 	}
 	return b, nil
 }

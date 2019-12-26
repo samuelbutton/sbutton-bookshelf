@@ -17,14 +17,23 @@ func main() {
 		port = "3000"
 	}
 
+	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+	if projectID == "" {
+		log.Fatal("GOOGLE_CLOUD_PROJECT must be set")
+	}
+
 	// pull context
 	// background returns a non-nill, empty Context, it is never canceled, has no values,
 	// and has no deadline (used as the top level context in a main function processing
 	// incoming requests)
 	ctx := context.Background()
 
-	// pull in new database
-	db, err := sql.Open("mysql", "root:button16@/samTestSchema")
+	dbDSN := os.Getenv("MYSQL_DSN")
+	if dbDSN == "" {
+		log.Fatal("MYSQL_DSN must be set")
+	}
+
+	db, err := sql.Open("mysql", dbDSN)
 	if err != nil {
 		log.Fatalf("sql.Open: %v", err)
 	}

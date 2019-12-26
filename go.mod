@@ -3,6 +3,7 @@ module github.com/scbutton95/sbutton-bookshelf
 go 1.13
 
 require (
+	cloud.google.com/go v0.46.3
 	cloud.google.com/go/storage v1.4.0
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/gorilla/handlers v1.4.2

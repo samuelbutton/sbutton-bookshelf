@@ -178,35 +178,35 @@ func (b *Bookshelf) uploadFileFromForm(ctx Context.context, r *http.Request) (ur
 	}
 
 	// storage bucket stuff, probably some mdb stuff instead of google cloud storage
-	// if b.StorageBucket == nil {
-	// 	return "", errors.New("storage bucket is missing: check bookshelf.go")
-	// }
-	// if _, err := b.StorageBucket.Attrs(ctx); err != nil {
-	// 	if err == storage.ErrBucketNotExist {
-	// 		return "", fmt.Errorf("bucket %q does not exist: check bookshelf.go", b.StorageBucketName)
-	// 	}
-	// 	return "", fmt.Errorf("could not get bucket: %v", err)
-	// }
+	if b.StorageBucket == nil {
+		return "", errors.New("storage bucket is missing: check bookshelf.go")
+	}
+	if _, err := b.StorageBucket.Attrs(ctx); err != nil {
+		if err == storage.ErrBucketNotExist {
+			return "", fmt.Errorf("bucket %q does not exist: check bookshelf.go", b.StorageBucketName)
+		}
+		return "", fmt.Errorf("could not get bucket: %v", err)
+	}
 
 	// random filename, retaining existing extension.
 	name := uuid.Must(uuid.NewV4()).String() + path.Ext(fh.Filename)
 
-	// w := b.StorageBucket.Object(name).NewWriter(ctx)
+	w := b.StorageBucket.Object(name).NewWriter(ctx)
 
 	// Warning: storage.AllUsers gives public read access to anyone.
-	// w.ACL = []storage.ACLRule{{Entity: storage.AllUsers, Role: storage.RoleReader}}
-	// w.ContentType = fh.Header.Get("Content-Type")
+	w.ACL = []storage.ACLRule{{Entity: storage.AllUsers, Role: storage.RoleReader}}
+	w.ContentType = fh.Header.Get("Content-Type")
 
 	// Entries are immutable, be aggressive about caching (1 day).
-	// w.CacheControl = "public, max-age=86400"
+	w.CacheControl = "public, max-age=86400"
 
-	// if _, err := io.Copy(w, f); err != nil {
-	// 	return "", err
-	// }
-	// if err := w.Close(); err != nil {
-	// 	return "", err
-	// }
+	if _, err := io.Copy(w, f); err != nil {
+		return "", err
+	}
+	if err := w.Close(); err != nil {
+		return "", err
+	}
 
-	// const publicURL = "https://storage.googleapis.com/%s/%s"
-	// return fmt.Sprintf(publicURL, b.StorageBucketName, name), nil
+	const publicURL = "https://storage.googleapis.com/%s/%s"
+	return fmt.Sprintf(publicURL, b.StorageBucketName, name), nil
 }
