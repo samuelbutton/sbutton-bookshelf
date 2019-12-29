@@ -1,6 +1,19 @@
 package main
 
-import "net/http"
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"path"
+	"runtime/debug"
+
+	"cloud.google.com/go/storage"
+	"github.com/gofrs/uuid"
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
+)
 
 var (
 	// See template.go for parseTemplate and execute (below)
@@ -78,7 +91,7 @@ func (b *Bookshelf) editFormHandler(w http.ResponseWriter, r *http.Request) *app
 // add a book to the database
 func (b *Bookshelf) createHandler(w http.ResponseWriter, r *http.Request) *appError {
 	ctx := r.Context()
-	book, err := bookFromForm(r)
+	book, err := b.bookFromForm(r)
 	if err != nil {
 		return b.appErrorf(r, err, "could not parse book from form: %w", err)
 	}
@@ -91,11 +104,52 @@ func (b *Bookshelf) createHandler(w http.ResponseWriter, r *http.Request) *appEr
 }
 
 func (b *Bookshelf) updateHandler(w http.ResponseWriter, r *http.Request) *appError {
+	ctx := r.Context()
+	id := mux.Vars(r)["id"]
+	if id == "" {
+		return b.appErrorf(r, errors.New("no book with empty ID"), "no book with empty ID")
+	}
+	book, err := b.bookFromForm(r)
+	if err != nil {
+		return b.appErrorf(r, err, "could not parse book from form: %v", err)
+	}
+	book.ID = id
 
+	if err := b.DB.UpdateBook(ctx, book); err != nil {
+		return b.appErrorf(r, err, "UpdateBook: %v", err)
+	}
+	http.Redirect(w, r, fmt.Sprintf("/books/%s", book.ID), http.StatusFound)
+	return nil
 }
 
 func (b *Bookshelf) deleteHandler(w http.ResponseWriter, r *http.Request) *appError {
+	ctx := r.Context()
+	id := mux.Vars(r)["id"]
+	if err := b.DB.DeleteBook(ctx, id); err != nil {
+		return b.appErrorf(r, err, "DeleteBook Error: %v", err)
+	}
+	http.Redirect(w, r, "/books", http.StatusFound)
+	return nil
+}
 
+// sendLog logs a message.
+//
+// See https://cloud.google.com/logging/docs/setup/go for how to use the
+// Stackdriver logging client. Output to stdout and stderr is automaticaly
+// sent to Stackdriver when running on App Engine.
+func (b *Bookshelf) sendLog(w http.ResponseWriter, r *http.Request) *appError {
+	fmt.Fprintln(b.logWriter, "Hey, you triggered a custom log entry. Good job!")
+
+	fmt.Fprintln(w, `<html>Log sent! Check the <a href="http://console.cloud.google.com/logs">logging section of the Cloud Console</a>.</html>`)
+
+	return nil
+}
+
+// sendError triggers an error that is sent to Error Reporting.
+func (b *Bookshelf) sendError(w http.ResponseWriter, r *http.Request) *appError {
+	msg := `<html>Logging an error. Check <a href="http://console.cloud.google.com/errors">Error Reporting</a> (it may take a minute or two for the error to appear).</html>`
+	err := errors.New("uh oh! an error occurred")
+	return b.appErrorf(r, err, msg)
 }
 
 // we create the type "appHandler" to re-use write / request functions
@@ -105,12 +159,27 @@ type appHandler func(http.ResponseWriter, *http.Request) *appError
 // our error specific to the app is defined by an  error, message, code, request,
 // bookshelf and stack ([]byte)
 type appError struct {
-	err error
-	message string 
-	code int
-	req *http.Request
-	b *Bookshelf
-	stack []byte
+	err     error
+	message string
+	code    int
+	req     *http.Request
+	b       *Bookshelf
+	stack   []byte
+}
+
+func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if e := fn(w, r); e != nil { // e is *appError, not os.Error.
+		fmt.Fprintf(e.b.logWriter, "Handler error (reported to Error Reporting): status code: %d, message: %s, underlying err: %+v\n", e.code, e.message, e.err)
+		w.WriteHeader(e.code)
+		fmt.Fprint(w, e.message)
+
+		// e.b.errorClient.Report(errorreporting.Entry{
+		// 	Error: e.err,
+		// 	Req:   r,
+		// 	Stack: e.stack,
+		// })
+		// e.b.errorClient.Flush()
+	}
 }
 
 // specific error method for our application
@@ -153,22 +222,21 @@ func (b *Bookshelf) bookFromForm(r *http.Request) (*Book, error) {
 	if imageURL == "" {
 		imageURL = r.FormValue("imageURL")
 	}
-	
+
 	book := &Book{
-		Title: r.FormValue("title"),
-		Author: r.FormValue("author"),
-		Pages: r.FormValue("pages"),
+		Title:         r.FormValue("title"),
+		Author:        r.FormValue("author"),
+		Pages:         r.FormValue("pages"),
 		PublishedDate: r.FormValue("publishedDate"),
-		ImageURL: imageURL
-		Description: r.FormValue("description"),
+		ImageURL:      imageURL,
+		Description:   r.FormValue("description"),
 	}
 
 	return book, nil
 }
 
 // uploadFileFromForm uploads a file if it's present in the "image" form field.
-
-func (b *Bookshelf) uploadFileFromForm(ctx Context.context, r *http.Request) (url string, err error) {
+func (b *Bookshelf) uploadFileFromForm(ctx context.Context, r *http.Request) (url string, err error) {
 	f, fh, err := r.FormFile("image")
 	if err == http.ErrMissingFile {
 		return "", nil

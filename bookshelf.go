@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 
 	// "cloud.google.com/go/errorreporting"
@@ -25,22 +26,29 @@ type Book struct {
 // BookDatabase provides a thread safe interface
 type BookDatabase interface {
 	ListBooks(context.Context) ([]*Book, error)
-	GetBook(context.Context, id string) (*Book, error)
-	AddBook(context.Context, b *Book) (id string, error)
-	DeleteBook(context.Context, id string) error
-	UpdateBook(context.Context, b *Book) error
+	GetBook(ctx context.Context, id string) (*Book, error)
+	AddBook(ctx context.Context, b *Book) (id string, err error)
+	DeleteBook(ctx context.Context, id string) error
+	UpdateBook(ctx context.Context, b *Book) error
 }
 
+// Bookshelf with storage for book information (relational) and
+// image (files in bucket)
 type Bookshelf struct {
-	DB        BookDatabase
+	DB                BookDatabase
 	StorageBucket     *storage.BucketHandle
 	StorageBucketName string
-	logWriter io.Writer
+	logWriter         io.Writer
 	// errorClient *errorreporting.Client
 }
 
+// NewBookshelf creates new storage and structure
 func NewBookshelf(db BookDatabase) (*Bookshelf, error) {
 	ctx := context.Background()
+	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+	if projectID == "" {
+		log.Fatal("GOOGLE_CLOUD_PROJECT must be set")
+	}
 
 	bucketName := projectID + "_bucket"
 	storageClient, err := storage.NewClient(ctx)
@@ -57,7 +65,7 @@ func NewBookshelf(db BookDatabase) (*Bookshelf, error) {
 	// 	return nil, fmt.Errorf("errorreporting.NewClient: %v", err)
 	// }
 	b := &Bookshelf{
-		logWriter:         os.Stderr,
+		logWriter: os.Stderr,
 		// errorClient:       errorClient,
 		DB:                db,
 		StorageBucketName: bucketName,
