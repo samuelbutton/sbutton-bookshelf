@@ -54,7 +54,7 @@ func (db *memoryDB) ListBooks(_ context.Context) ([]*Book, error) {
 	}
 
 	sort.Slice(books, func(i, j int) bool {
-		return books[i].Title < books[j].Title
+		return UseString(books[i].Title) < UseString(books[j].Title)
 	})
 	return books, nil
 }
@@ -75,12 +75,12 @@ func (db *memoryDB) AddBook(_ context.Context, b *Book) (id string, err error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	b.ID = strconv.FormatInt(db.nextID, 10)
-	db.books[b.ID] = b
+	b.ID = UsePointer(strconv.FormatInt(db.nextID, 10))
+	db.books[UseString(b.ID)] = b
 
 	db.nextID++
 
-	return b.ID, nil
+	return UseString(b.ID), nil
 }
 
 func (db *memoryDB) DeleteBook(_ context.Context, id string) error {
@@ -99,13 +99,13 @@ func (db *memoryDB) DeleteBook(_ context.Context, id string) error {
 }
 
 func (db *memoryDB) UpdateBook(_ context.Context, b *Book) error {
-	if b.ID == "" {
+	if UseString(b.ID) == "" {
 		return errors.New("memorydb: book with unassigned ID passed into UpdateBook")
 	}
 
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	db.books[b.ID] = b
+	db.books[UseString(b.ID)] = b
 	return nil
 }

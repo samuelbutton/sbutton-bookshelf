@@ -50,12 +50,17 @@ func (db *mysqlDB) GetBook(ctx context.Context, id string) (*Book, error) {
 		return nil, fmt.Errorf("mysqldb query GetBook: Get: %v", err)
 	}
 
-	defer rs.Close()
-
+	ready := rs.Next()
+	if ready == false {
+		return nil, fmt.Errorf("mysqldb next GetBook: %v", ready)
+	}
 	b := &Book{}
-	if err := rs.Scan(b); err != nil {
+
+	err = rs.Scan(&b.ID, &b.Title, &b.Author, &b.Pages, &b.PublishedDate, &b.ImageURL, &b.Description)
+	if err != nil {
 		return nil, fmt.Errorf("mysqldb scan GetBook: Get: %v", err)
 	}
+	defer rs.Close()
 	return b, nil
 }
 
@@ -67,17 +72,45 @@ func (db *mysqlDB) AddBook(ctx context.Context, b *Book) (id string, err error) 
 		return "", fmt.Errorf("mysqldb prepare AddBook: Get: %v", err)
 	}
 	// temp fix on line below
-	res, err := stmtIns.ExecContext(ctx, b.Title, b.Author, b.Pages, b.PublishedDate, b.ImageURL, b.Description)
+	res, err := stmtIns.ExecContext(ctx, UseString(b.Title), UseString(b.Author), UseString(b.Pages), UseString(b.PublishedDate), UseString(b.ImageURL), UseString(b.Description))
 	if err != nil {
 		return "", fmt.Errorf("mysqldb exec AddBook: Get: %v", err)
 	}
 
+	// rs, err := res.RowsAffected()
+	// if err != nil {
+	// 	return "", fmt.Errorf("mysqldb result AddBook: Get: %v", err)
+	// }
+	// ready := rs.Next()
+	// if ready == false {
+	// 	return nil, fmt.Errorf("mysqldb next AddBook: %v", ready)
+	// }
+	// lastID := UsePointer("")
+
+	// err = rs.Scan(&lastID)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("mysqldb scan GetBook: Get: %v", err)
+	// }
+	// defer rs.Close()
+	// return b, nil
+
+	// if ready == false {
+	// 	break
+	// }
+	// b := &Book{}
+
+	// err := rs.Scan(&b.ID, &b.Title, &b.Author, &b.Pages, &b.PublishedDate, &b.ImageURL, &b.Description)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("mysqldb: could not list books: %v", err)
+	// }
+
 	lastID, err := res.LastInsertId()
+	log.Print(lastID)
 	if err != nil {
 		return "", fmt.Errorf("mysqldb result AddBook: Get: %v", err)
 	}
 
-	b.ID = strconv.FormatInt(lastID, 10)
+	b.ID = UsePointer(strconv.FormatInt(lastID, 10))
 	return strconv.FormatInt(lastID, 10), nil
 }
 
@@ -99,13 +132,13 @@ func (db *mysqlDB) DeleteBook(ctx context.Context, id string) error {
 
 // UpdateBook updates the entry for a given book.
 func (db *mysqlDB) UpdateBook(ctx context.Context, b *Book) error {
-	// set book from db.db
-	stmtIns, err := db.database.PrepareContext(ctx, fmt.Sprintf("UPDATE bookshelf SET id=?, title=?, author=?, pages=?, publishedDate=?, imageURL=?, description=? WHERE id = %q", b.ID))
+	// set book from db
+	stmtIns, err := db.database.PrepareContext(ctx, fmt.Sprintf("UPDATE bookshelf SET title=?, author=?, pages=?, publishedDate=?, imageURL=?, description=? WHERE ID = %q", UseString(b.ID)))
 	if err != nil {
 		return fmt.Errorf("mysqldb prepare UpdateBook: Get: %v", err)
 	}
 
-	_, err = stmtIns.ExecContext(ctx, b)
+	_, err = stmtIns.ExecContext(ctx, UseString(b.Title), UseString(b.Author), UseString(b.Pages), UseString(b.PublishedDate), UseString(b.ImageURL), UseString(b.Description))
 	if err != nil {
 		return fmt.Errorf("mysqldb exec UpdateBook: Get: %v", err)
 	}
@@ -126,7 +159,6 @@ func (db *mysqlDB) ListBooks(ctx context.Context) ([]*Book, error) {
 
 	for {
 		ready := rs.Next()
-		fmt.Printf("Next %v", ready)
 		if ready == false {
 			break
 		}
@@ -136,7 +168,7 @@ func (db *mysqlDB) ListBooks(ctx context.Context) ([]*Book, error) {
 		if err != nil {
 			return nil, fmt.Errorf("mysqldb: could not list books: %v", err)
 		}
-		log.Printf("Book %q ID: %q", b.Title, b.ID)
+		log.Printf("Book %q ID: %q", UseString(b.Title), UseString(b.ID))
 		books = append(books, b)
 	}
 

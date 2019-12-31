@@ -99,7 +99,7 @@ func (b *Bookshelf) createHandler(w http.ResponseWriter, r *http.Request) *appEr
 	if err != nil {
 		return b.appErrorf(r, err, "could not save book: %v", err)
 	}
-	http.Redirect(w, r, fmt.Sprintf("/books/%s", id), http.StatusFound)
+	http.Redirect(w, r, fmt.Sprintf("/books/%q", id), http.StatusFound)
 	return nil
 }
 
@@ -113,12 +113,12 @@ func (b *Bookshelf) updateHandler(w http.ResponseWriter, r *http.Request) *appEr
 	if err != nil {
 		return b.appErrorf(r, err, "could not parse book from form: %v", err)
 	}
-	book.ID = id
+	book.ID = UsePointer(id)
 
 	if err := b.DB.UpdateBook(ctx, book); err != nil {
 		return b.appErrorf(r, err, "UpdateBook: %v", err)
 	}
-	http.Redirect(w, r, fmt.Sprintf("/books/%s", book.ID), http.StatusFound)
+	http.Redirect(w, r, fmt.Sprintf("/books/%s", UseString(book.ID)), http.StatusFound)
 	return nil
 }
 
@@ -224,12 +224,12 @@ func (b *Bookshelf) bookFromForm(r *http.Request) (*Book, error) {
 	}
 
 	book := &Book{
-		Title:         r.FormValue("title"),
-		Author:        r.FormValue("author"),
-		Pages:         r.FormValue("pages"),
-		PublishedDate: r.FormValue("publishedDate"),
-		ImageURL:      imageURL,
-		Description:   r.FormValue("description"),
+		Title:         UsePointer(r.FormValue("title")),
+		Author:        UsePointer(r.FormValue("author")),
+		Pages:         UsePointer(r.FormValue("pages")),
+		PublishedDate: UsePointer(r.FormValue("publishedDate")),
+		ImageURL:      UsePointer(imageURL),
+		Description:   UsePointer(r.FormValue("description")),
 	}
 
 	return book, nil

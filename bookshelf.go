@@ -14,13 +14,13 @@ import (
 // Book is a structure that holds metadata about a book
 // all metadata is saved as strings
 type Book struct {
-	ID            string
-	Title         string
-	Author        string
-	Pages         string
-	PublishedDate string
-	ImageURL      string
-	Description   string
+	ID            *string
+	Title         *string
+	Author        *string
+	Pages         *string
+	PublishedDate *string
+	ImageURL      *string
+	Description   *string
 }
 
 // BookDatabase provides a thread safe interface
