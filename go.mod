@@ -1,4 +1,4 @@
-module github.com/scbutton95/sbutton-bookshelf
+module github.com/samuelbutton/sbutton-bookshelf
 
 go 1.13
 

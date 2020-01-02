@@ -9,16 +9,8 @@ import (
 	"sync"
 )
 
-// underscore is a blank identifier
 var _ BookDatabase = &memoryDB{}
 
-// simple in-memory persistence layer in memory for books
-// mutex allows for locking and unlocking of a memory structure
-// we save nextID in the memoryDB to save the next spot that data can be saved
-// we use the map to persist data that we have in memory (of books)
-// (aside: the sync package in Go has a Map type that provides automcatic locking
-// and unlocking, but we chose to use a Mutex for manual locking and unlocking for
-// better control over the data structure)
 type memoryDB struct {
 	mu     sync.Mutex
 	nextID int64
@@ -35,15 +27,10 @@ func newMemoryDB() *memoryDB {
 func (db *memoryDB) Close(context.Context) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-
 	db.books = nil
-
 	return nil
 }
 
-// Working theory on why these methods are called on references to memoryDB:
-// we define all variables that are BookDatabases as those that exist at memoryDB references
-// this means that the interface is called on the &memoryDB{}
 func (db *memoryDB) ListBooks(_ context.Context) ([]*Book, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()

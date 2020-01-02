@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	// "cloud.google.com/go/errorreporting"
+	"cloud.google.com/go/errorreporting"
 	"cloud.google.com/go/storage"
 )
 
@@ -39,7 +39,7 @@ type Bookshelf struct {
 	StorageBucket     *storage.BucketHandle
 	StorageBucketName string
 	logWriter         io.Writer
-	// errorClient *errorreporting.Client
+	errorClient       *errorreporting.Client
 }
 
 // NewBookshelf creates new storage and structure
@@ -55,18 +55,18 @@ func NewBookshelf(db BookDatabase) (*Bookshelf, error) {
 	if err != nil {
 		return nil, fmt.Errorf("storage.NewClient: %v", err)
 	}
-	// errorClient, err := errorreporting.NewClient(ctx, projectID, errorreporting.Config{
-	// 	ServiceName: "bookshelf", // need to do something about this, add in some kind of service on GCP
-	// 	OnError: func(err error) {
-	// 		fmt.Fprintf(os.Stderr, "Could not log error: %v", err)
-	// 	},
-	// })
-	// if err != nil {
-	// 	return nil, fmt.Errorf("errorreporting.NewClient: %v", err)
-	// }
+	errorClient, err := errorreporting.NewClient(ctx, projectID, errorreporting.Config{
+		ServiceName: "sbutton-bookshelf",
+		OnError: func(err error) {
+			fmt.Fprintf(os.Stderr, "Could not log error: %v", err)
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("errorreporting.NewClient: %v", err)
+	}
 	b := &Bookshelf{
-		logWriter: os.Stderr,
-		// errorClient:       errorClient,
+		logWriter:         os.Stderr,
+		errorClient:       errorClient,
 		DB:                db,
 		StorageBucketName: bucketName,
 		StorageBucket:     storageClient.Bucket(bucketName),
