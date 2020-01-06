@@ -15,9 +15,9 @@ func main() {
 
 	ctx := context.Background()
 
-	db, err := newMySQLDB()
+	db, err := newpostgresDB()
 	if err != nil {
-		log.Fatalf("newMySQLDB: %v", err)
+		log.Fatalf("newpostgresDB: %v", err)
 	}
 
 	defer db.Close(ctx)
