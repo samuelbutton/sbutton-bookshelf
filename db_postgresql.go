@@ -17,19 +17,11 @@ type postgresDB struct {
 
 var _ BookDatabase = &postgresDB{}
 
-const (
-	host     = "localhost"
-	port     = 5432
-	user     = "sambutton"
-	password = "laoz16"
-	dbname   = "sambutton"
-)
-
 func newpostgresDB() (*postgresDB, error) {
 	ctx := context.Background()
-	psqlInfo := os.Getenv("PSQL_INFO")
+	psqlInfo := os.Getenv("DATABASE_URL")
 	if psqlInfo == "" {
-		log.Fatal("PSQL_INFO must be set")
+		log.Fatal("DATABASE_URL must be set")
 	}
 
 	db, err := sql.Open("postgres", psqlInfo)
