@@ -9,6 +9,9 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// StaticDir accessed for static files
+const StaticDir = "/assets/"
+
 var (
 	listTmpl   = parseTemplate("list.html")
 	editTmpl   = parseTemplate("edit.html")
@@ -18,6 +21,7 @@ var (
 func (b *Bookshelf) registerHandlers() {
 	r := mux.NewRouter()
 
+	r.PathPrefix(StaticDir).Handler(http.StripPrefix(StaticDir, http.FileServer(http.Dir("."+StaticDir))))
 	r.Handle("/", http.RedirectHandler("/books", http.StatusFound))
 
 	r.Methods("GET").Path("/books").
