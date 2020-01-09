@@ -17,11 +17,9 @@ func parseTemplate(filename string) *appTemplate {
 	if err != nil {
 		panic(fmt.Errorf("could not read template: %v", err))
 	}
-	// put this template in the body of the template already created in the
-	// base.html step
+
 	template.Must(tmpl.New("body").Parse(string(b)))
 
-	// returns pointer to base, which now contains the requisite template
 	return &appTemplate{tmpl.Lookup("base.html")}
 }
 

@@ -62,6 +62,24 @@ func (b *Bookshelf) bookFromForm(r *http.Request) (*Book, error) {
 	return book, nil
 }
 
+func (b *Bookshelf) accountFromForm(r *http.Request) (*Account, error) {
+	// ctx := r.Context()
+	// imageURL, err := b.uploadFileFromForm(ctx, r)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("could not upload file: %v", err)
+	// }
+	// if imageURL == "" {
+	// 	imageURL = r.FormValue("imageURL")
+	// }
+
+	account := &Account{
+		Email:    UsePointer(r.FormValue("email")),
+		Password: UsePointer(r.FormValue("password")),
+	}
+
+	return account, nil
+}
+
 func (b *Bookshelf) uploadFileFromForm(ctx context.Context, r *http.Request) (url string, err error) {
 	f, fh, err := r.FormFile("image")
 	if err == http.ErrMissingFile {

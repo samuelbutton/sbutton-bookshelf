@@ -1,1 +1,0 @@
-SELECT * FROM samTestSchema.bookshelf;

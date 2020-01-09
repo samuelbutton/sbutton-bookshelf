@@ -30,6 +30,10 @@ type BookDatabase interface {
 	AddBook(ctx context.Context, b *Book) (id string, err error)
 	DeleteBook(ctx context.Context, id string) error
 	UpdateBook(ctx context.Context, b *Book) error
+	GetUser(ctx context.Context, id string) (*Account, error)
+	LoginAccount(ctx context.Context, email string, password string) (uint, error)
+	ValidateAccount(ctx context.Context, a *Account) error
+	CreateAccount(ctx context.Context, a *Account) (uint, error)
 }
 
 // Bookshelf with storage for book information (relational) and

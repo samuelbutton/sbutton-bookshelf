@@ -15,7 +15,8 @@ type mysqlDB struct {
 	database *sql.DB
 }
 
-var _ BookDatabase = &mysqlDB{}
+// MYSQL IMPLEMENTATION MUST BE UPDATED FOR ACCOUNTS
+// var _ BookDatabase = &mysqlDB{}
 
 func newMySQLDB() (*mysqlDB, error) {
 	ctx := context.Background()

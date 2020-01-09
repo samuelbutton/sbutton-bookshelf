@@ -9,7 +9,8 @@ import (
 	"sync"
 )
 
-var _ BookDatabase = &memoryDB{}
+// MEMORY IMPLEMENTATION MUST BE UPDATED FOR ACCOUNTS
+// var _ BookDatabase = &memoryDB{}
 
 type memoryDB struct {
 	mu     sync.Mutex
