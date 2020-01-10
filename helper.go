@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/gofrs/uuid"
@@ -40,6 +41,20 @@ func (b *Bookshelf) bookFromRequest(r *http.Request) (*Book, error) {
 	return book, nil
 }
 
+func (b *Bookshelf) setCookieAndRedirect(w http.ResponseWriter, r *http.Request, a *Account, t time.Time) error {
+	if a.ID > 0 {
+		http.SetCookie(w, &http.Cookie{
+			Name:    "token",
+			Value:   UseString(a.Token),
+			Expires: t,
+		})
+		http.Redirect(w, r, "/books", http.StatusFound)
+	} else {
+		http.Redirect(w, r, "/login", http.StatusFound)
+	}
+	return nil
+}
+
 func (b *Bookshelf) bookFromForm(r *http.Request) (*Book, error) {
 	ctx := r.Context()
 	imageURL, err := b.uploadFileFromForm(ctx, r)
@@ -63,20 +78,10 @@ func (b *Bookshelf) bookFromForm(r *http.Request) (*Book, error) {
 }
 
 func (b *Bookshelf) accountFromForm(r *http.Request) (*Account, error) {
-	// ctx := r.Context()
-	// imageURL, err := b.uploadFileFromForm(ctx, r)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("could not upload file: %v", err)
-	// }
-	// if imageURL == "" {
-	// 	imageURL = r.FormValue("imageURL")
-	// }
-
 	account := &Account{
 		Email:    UsePointer(r.FormValue("email")),
 		Password: UsePointer(r.FormValue("password")),
 	}
-
 	return account, nil
 }
 

@@ -25,7 +25,7 @@ func (b *Bookshelf) registerHandlers() {
 	r.Use(JwtAuthentication)
 
 	r.PathPrefix(StaticDir).Handler(http.StripPrefix(StaticDir, http.FileServer(http.Dir("."+StaticDir))))
-	r.Handle("/", http.RedirectHandler("/login", http.StatusFound))
+	r.Handle("/", http.RedirectHandler("/books", http.StatusFound))
 
 	r.Methods("GET").Path("/new").
 		Handler(appHandler(b.createAccountFormHandler))
@@ -152,14 +152,13 @@ func (b *Bookshelf) createAccountHandler(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return b.appErrorf(r, err, "could not parse account from form: %v", err)
 	}
-	id, err := b.DB.CreateAccount(ctx, a)
+	aPost, expirationTime, err := b.DB.CreateAccount(ctx, a)
 	if err != nil {
-		return b.appErrorf(r, err, "could not creat account: %v", err)
+		return b.appErrorf(r, err, "could not create account: %v", err)
 	}
-	if id > 0 {
-		http.Redirect(w, r, "/books", http.StatusFound)
-	} else {
-		http.Redirect(w, r, "/login", http.StatusFound)
+	err = b.setCookieAndRedirect(w, r, aPost, expirationTime)
+	if err != nil {
+		return b.appErrorf(r, err, "LoginAccount cookie Error: %v", err)
 	}
 	return nil
 }
@@ -168,17 +167,13 @@ func (b *Bookshelf) authenticateAccountHandler(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	a, err := b.accountFromForm(r)
 
-	// a.Email = UsePointer(mux.Vars(r)["email"])
-	// a.Password = UsePointer(mux.Vars(r)["password"])
-	// err := json.NewDecoder(r.Body).Decode(account) // REST
-	id, err := b.DB.LoginAccount(ctx, UseString(a.Email), UseString(a.Password))
+	aPost, expirationTime, err := b.DB.LoginAccount(ctx, UseString(a.Email), UseString(a.Password))
 	if err != nil {
 		return b.appErrorf(r, err, "LoginAccount Error: %v", err)
 	}
-	if id > 0 {
-		http.Redirect(w, r, "/books", http.StatusFound)
-	} else {
-		http.Redirect(w, r, "/login", http.StatusFound)
+	err = b.setCookieAndRedirect(w, r, aPost, expirationTime)
+	if err != nil {
+		return b.appErrorf(r, err, "LoginAccount cookie Error: %v", err)
 	}
 	return nil
 }

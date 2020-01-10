@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	_ "github.com/lib/pq"
@@ -63,7 +64,6 @@ func (db *postgresDB) GetUser(ctx context.Context, id string) (*Account, error) 
 
 	a := &Account{}
 
-	// err = rs.Scan(&a.ID, &a.Email, &a.Password, &a.Token)
 	err = rs.Scan(&a.ID, &a.Email, &a.Password)
 	if UseString(a.Email) == "" {
 		return nil, fmt.Errorf("postgresqlDB scan GetUser: Get: %v", err)
@@ -89,84 +89,96 @@ func (db *postgresDB) ValidateAccount(ctx context.Context, a *Account) error {
 	rs, err := db.database.QueryContext(ctx, `SELECT * FROM accounts WHERE email = $1`, UseString(a.Email))
 	defer rs.Close()
 	rs.Next()
-	// err = rs.Scan(&tempAccount.ID, &tempAccount.Email, &tempAccount.Password, &tempAccount.Token)
 	err = rs.Scan(&tempAccount.ID, &tempAccount.Email, &tempAccount.Password)
 	if UseString(tempAccount.Email) != "" {
 		return fmt.Errorf("postgresqlDB email ValidateAccount: %v", err)
 	}
-	a.Password = UsePointer("")
 
 	return nil
 }
 
-func (db *postgresDB) CreateAccount(ctx context.Context, a *Account) (uint, error) {
+func (db *postgresDB) CreateAccount(ctx context.Context, a *Account) (*Account, time.Time, error) {
 	if err := db.ValidateAccount(ctx, a); err != nil {
-		return 0, err
+		return nil, time.Now(), err
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(UseString(a.Password)), bcrypt.DefaultCost)
 	a.Password = UsePointer(string(hashedPassword))
 
-	err = db.database.QueryRow(`INSERT INTO bookshelf(email, password)
-		VALUES($1, $2, $3) RETURNING id`, UseString(a.Email), UseString(a.Password)).Scan(&a.ID)
+	err = db.database.QueryRow(`INSERT INTO accounts(email, password)
+		VALUES($1, $2) RETURNING id`, UseString(a.Email), UseString(a.Password)).Scan(&a.ID)
 	if err != nil {
-		return 0, fmt.Errorf("postgresqlDB exec CreateAccount: %v", err)
+		return nil, time.Now(), fmt.Errorf("postgresqlDB exec CreateAccount: %v", err)
 	}
 
 	if a.ID <= 0 {
-		return 0, fmt.Errorf("postgresqlDB id CreateAccount: %v", err)
+		return nil, time.Now(), fmt.Errorf("postgresqlDB id CreateAccount: %v", err)
 	}
 
-	tk := &Token{UserID: a.ID}
+	expirationTime := time.Now().Add(5 * time.Minute)
+	tk := &Token{
+		UserID: a.ID,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+	}
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), tk)
 	tokenString, err := token.SignedString([]byte(os.Getenv("BOOKSHELF_TOKEN_PASSWORD")))
 	if err != nil {
-		return 0, fmt.Errorf("postgresqlDB sign CreateAccount: %v", err)
+		return nil, time.Now(), fmt.Errorf("postgresqlDB sign CreateAccount: %v", err)
 	}
 	a.Token = UsePointer(tokenString)
 
 	a.Password = UsePointer("")
 
-	return a.ID, nil
+	return a, expirationTime, nil
 }
 
-func (db *postgresDB) LoginAccount(ctx context.Context, email string, password string) (uint, error) {
+func (db *postgresDB) LoginAccount(ctx context.Context, email string, password string) (*Account, time.Time, error) {
 
 	rs, err := db.database.QueryContext(ctx, `SELECT * FROM accounts WHERE email = $1`, email)
 	defer rs.Close()
 	if err != nil {
-		return 0, fmt.Errorf("postgresqlDB query LoginAccount: %v", err)
+		return nil, time.Now(), fmt.Errorf("postgresqlDB query LoginAccount: %v", err)
 	}
 
 	ready := rs.Next()
 	if ready == false {
-		return 0, fmt.Errorf("postgresqlDB next LoginAccount: %v", ready)
+		return nil, time.Now(), fmt.Errorf("postgresqlDB next LoginAccount: %v", ready)
 	}
 
 	a := &Account{}
 
-	// err = rs.Scan(&a.ID, &a.Email, &a.Password, &a.Token)
 	err = rs.Scan(&a.ID, &a.Email, &a.Password)
 	if UseString(a.Email) == "" {
-		return 0, fmt.Errorf("postgresqlDB scan LoginAccount: %v", err)
+		return nil, time.Now(), fmt.Errorf("postgresqlDB scan LoginAccount: %v", err)
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(UseString(a.Password)), []byte(password))
-	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword {
-		return 0, fmt.Errorf("postgresqlDB pass LoginAccount: %v", err)
+	if err != nil {
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			return nil, time.Now(), fmt.Errorf("postgresqlDB hash mismatch LoginAccount: %v", err)
+		}
+		return nil, time.Now(), fmt.Errorf("postgresqlDB pass LoginAccount: %v", err)
 	}
 
 	a.Password = UsePointer("")
 
-	tk := &Token{UserID: a.ID}
+	expirationTime := time.Now().Add(5 * time.Minute)
+	tk := &Token{
+		UserID: a.ID,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+	}
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), tk)
 	tokenString, err := token.SignedString([]byte(os.Getenv("BOOKSHELF_TOKEN_PASSWORD")))
 	if err != nil {
-		return 0, fmt.Errorf("postgresqlDB sign LoginAccount: %v", err)
+		return nil, time.Now(), fmt.Errorf("postgresqlDB sign LoginAccount: %v", err)
 	}
 	a.Token = UsePointer(tokenString)
 
-	return a.ID, nil
+	return a, expirationTime, nil
 }
 
 func (db *postgresDB) GetBook(ctx context.Context, id string) (*Book, error) {
