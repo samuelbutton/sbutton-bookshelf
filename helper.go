@@ -48,10 +48,26 @@ func (b *Bookshelf) setCookieAndRedirect(w http.ResponseWriter, r *http.Request,
 			Value:   UseString(a.Token),
 			Expires: t,
 		})
+		b.userLoggedIn = true
+		// probably should set the bookshelf to have a property pointing to the account for further use
 		http.Redirect(w, r, "/books", http.StatusFound)
 	} else {
 		http.Redirect(w, r, "/login", http.StatusFound)
+		return errors.New("account unsuccessful")
 	}
+	return nil
+}
+
+func (b *Bookshelf) removeCookie(w http.ResponseWriter, r *http.Request) error {
+	http.SetCookie(w, &http.Cookie{
+		Name:    "token",
+		Value:   "",
+		Expires: time.Now(),
+	})
+	c, _ := r.Cookie("token")
+	fmt.Println(c.Value)
+	b.userLoggedIn = false
+	// http.Redirect(w, r, "/login", http.StatusFound)
 	return nil
 }
 

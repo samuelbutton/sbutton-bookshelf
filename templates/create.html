@@ -9,6 +9,27 @@
     <label for="password">Password</label>
     <input class="form-control" name="password" id="password" value="" required maxlength="255" type="password">
   </div>
-  <!-- TO BE ADDED: CONFIRM PASSWORD -->
+  <div class="form-group">
+    <label for="password">Confirm Password</label>
+    <input class="form-control" name="confirm_password" id="confirm_password" value="" required maxlength="255" type="password">
+  </div>
   <button class="btn btn-success">Create</button>
 </form>
+<div style="margin-top: 1em;">
+  <a href="/login">Login</a>
+</div>
+<script>
+  var password = document.getElementById("password")
+  , confirm_password = document.getElementById("confirm_password");
+
+  function validatePassword(){
+    if(password.value != confirm_password.value) {
+      confirm_password.setCustomValidity("Passwords Don't Match");
+    } else {
+      confirm_password.setCustomValidity('');
+    }
+  }
+
+  password.onchange = validatePassword;
+  confirm_password.onkeyup = validatePassword;
+</script>

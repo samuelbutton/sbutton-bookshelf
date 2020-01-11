@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -75,7 +75,9 @@ func (db *postgresDB) GetUser(ctx context.Context, id string) (*Account, error) 
 
 func (db *postgresDB) ValidateAccount(ctx context.Context, a *Account) error {
 	// probably refactor
-	if !strings.Contains(UseString(a.Email), "@") {
+	re := regexp.MustCompile(".+@.+\\..+")
+	matched := re.Match([]byte(UseString(a.Email)))
+	if matched == false {
 		return fmt.Errorf("postgresqlDB email ValidateAccount")
 	}
 

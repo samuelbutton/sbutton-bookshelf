@@ -29,9 +29,11 @@ type appTemplate struct {
 
 func (tmpl *appTemplate) Execute(b *Bookshelf, w http.ResponseWriter, r *http.Request, data interface{}) *appError {
 	d := struct {
-		Data interface{}
+		Data     interface{}
+		LoggedIn bool
 	}{
-		Data: data,
+		Data:     data,
+		LoggedIn: b.userLoggedIn,
 	}
 
 	if err := tmpl.t.Execute(w, d); err != nil {

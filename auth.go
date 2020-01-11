@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
 )
@@ -29,7 +30,7 @@ var JwtAuthentication = func(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestPath := r.URL.Path
 
-		if requestPath == "/new" || requestPath == "/login" || requestPath == "/assets/style.css" {
+		if requestPath == "/new" || requestPath == "/login" || requestPath == "/assets/style.css" || requestPath == "/logout" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -37,11 +38,9 @@ var JwtAuthentication = func(next http.Handler) http.Handler {
 		c, err := r.Cookie("token")
 		if err != nil {
 			if err == http.ErrNoCookie {
-				// w.WriteHeader(http.StatusUnauthorized)
 				http.Redirect(w, r, "/login", http.StatusFound)
 				return
 			}
-			// w.WriteHeader(http.StatusBadRequest)
 			fmt.Printf("bad request failed: %v", err)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
@@ -56,27 +55,38 @@ var JwtAuthentication = func(next http.Handler) http.Handler {
 		})
 		if err != nil {
 			if err == jwt.ErrSignatureInvalid {
-				// w.WriteHeader(http.StatusUnauthorized)
 				fmt.Println("sig failed")
 				http.Redirect(w, r, "/login", http.StatusFound)
 				return
 			}
-			// w.WriteHeader(http.StatusBadRequest)
 			fmt.Println(tknStr)
 			fmt.Printf("bad 2 request failed: %v", err)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
 		if !tkn.Valid {
-			// w.WriteHeader(http.StatusUnauthorized)
 			fmt.Println("token failed")
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
 
-		// w.Write([]byte(fmt.Sprintf("Welcome %v!", token.UserID)))
-
 		fmt.Printf("User %v", token.UserID)
+
+		expirationTime := time.Now().Add(5 * time.Minute)
+		token.ExpiresAt = expirationTime.Unix()
+		newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, token)
+		tokenString, err := newToken.SignedString([]byte(os.Getenv("BOOKSHELF_TOKEN_PASSWORD")))
+		if err != nil {
+			fmt.Printf("token error: %v", err)
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:    "token",
+			Value:   tokenString,
+			Expires: expirationTime,
+		})
+
 		ctx := context.WithValue(r.Context(), "user", token.UserID)
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)

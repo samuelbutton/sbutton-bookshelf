@@ -3,7 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"net/smtp"
+	"os"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -31,6 +34,8 @@ func (b *Bookshelf) registerHandlers() {
 		Handler(appHandler(b.createAccountFormHandler))
 	r.Methods("GET").Path("/login").
 		Handler(appHandler(b.loginFormHandler))
+	r.Methods("GET").Path("/logout").
+		Handler(appHandler(b.logoutHandler))
 	r.Methods("GET").Path("/books").
 		Handler(appHandler(b.listHandler))
 	r.Methods("GET").Path("/books/add").
@@ -68,6 +73,7 @@ func (b *Bookshelf) listHandler(w http.ResponseWriter, r *http.Request) *appErro
 	if err != nil {
 		return b.appErrorf(r, err, "could not list books: %v", err)
 	}
+	b.userLoggedIn = true
 	return listTmpl.Execute(b, w, r, books)
 }
 
@@ -80,10 +86,20 @@ func (b *Bookshelf) detailHandler(w http.ResponseWriter, r *http.Request) *appEr
 }
 
 func (b *Bookshelf) createAccountFormHandler(w http.ResponseWriter, r *http.Request) *appError {
+	b.userLoggedIn = false
 	return createTmpl.Execute(b, w, r, nil)
 }
 
 func (b *Bookshelf) loginFormHandler(w http.ResponseWriter, r *http.Request) *appError {
+	b.userLoggedIn = false
+	return loginTmpl.Execute(b, w, r, nil)
+}
+
+func (b *Bookshelf) logoutHandler(w http.ResponseWriter, r *http.Request) *appError {
+	err := b.removeCookie(w, r)
+	if err != nil {
+		return b.appErrorf(r, err, "Logout cookie Error: %v", err)
+	}
 	return loginTmpl.Execute(b, w, r, nil)
 }
 
@@ -152,6 +168,7 @@ func (b *Bookshelf) createAccountHandler(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return b.appErrorf(r, err, "could not parse account from form: %v", err)
 	}
+
 	aPost, expirationTime, err := b.DB.CreateAccount(ctx, a)
 	if err != nil {
 		return b.appErrorf(r, err, "could not create account: %v", err)
@@ -175,5 +192,28 @@ func (b *Bookshelf) authenticateAccountHandler(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		return b.appErrorf(r, err, "LoginAccount cookie Error: %v", err)
 	}
+	return nil
+}
+
+func (b *Bookshelf) changePasswordHandler(w http.ResponseWriter, r *http.Request) *appError {
+	// ctx := r.Context()
+	var (
+		from = "Discount Gopher Store!"
+		msg  = []byte("To: \r\n" +
+			"Subject: Discount Gophers!\r\n" +
+			"\r\n" +
+			"This is the email body.\r\n")
+		recipients = []string{"scbutton95@gmail.com"}
+	)
+
+	// hostname is used by PlainAuth to validate the TLS certificate.
+	hostname := "smtp.gmail.com"
+	auth := smtp.PlainAuth("", "sbutton.bookshelf@gmail.com", os.Getenv("BOOKSHELF_GMAIL_PASSWORD"), hostname)
+
+	err := smtp.SendMail(hostname+":587", auth, from, recipients, msg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return nil
 }

@@ -41,6 +41,7 @@ type BookDatabase interface {
 // image (files in bucket)
 type Bookshelf struct {
 	DB                BookDatabase
+	userLoggedIn      bool
 	StorageBucket     *storage.BucketHandle
 	StorageBucketName string
 	logWriter         io.Writer
@@ -73,6 +74,7 @@ func NewBookshelf(db BookDatabase) (*Bookshelf, error) {
 		logWriter:         os.Stderr,
 		errorClient:       errorClient,
 		DB:                db,
+		userLoggedIn:      false,
 		StorageBucketName: bucketName,
 		StorageBucket:     storageClient.Bucket(bucketName),
 	}
