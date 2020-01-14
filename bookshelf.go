@@ -31,16 +31,21 @@ type BookDatabase interface {
 	AddBook(ctx context.Context, b *Book) (id string, err error)
 	DeleteBook(ctx context.Context, id string) error
 	UpdateBook(ctx context.Context, b *Book) error
-	GetUser(ctx context.Context, id string) (*Account, error)
+	// GetUser(ctx context.Context, id string) (*Account, error)
 	LoginAccount(ctx context.Context, email string, password string) (*Account, time.Time, error)
 	ValidateAccount(ctx context.Context, a *Account) error
 	CreateAccount(ctx context.Context, a *Account) (*Account, time.Time, error)
+	GetResetToken(ctx context.Context, email string) (string, error)
+	CheckTokenValidity(ctx context.Context, tokenString string, a *Account) error
+	RemoveToken(ctx context.Context, a *Account) error
+	UpdatePassword(ctx context.Context, a *Account) error
 }
 
 // Bookshelf with storage for book information (relational) and
 // image (files in bucket)
 type Bookshelf struct {
 	DB                BookDatabase
+	account           *Account
 	userLoggedIn      bool
 	StorageBucket     *storage.BucketHandle
 	StorageBucketName string

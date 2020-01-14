@@ -45,33 +45,33 @@ func (db *postgresDB) Close(context.Context) error {
 	return db.database.Close()
 }
 
-func (db *postgresDB) GetUser(ctx context.Context, id string) (*Account, error) {
-	intID, err := strconv.ParseInt(id, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("postgresqlDB parse GetUser: %v", err)
-	}
+// func (db *postgresDB) GetUser(ctx context.Context, id string) (*Account, error) {
+// 	intID, err := strconv.ParseInt(id, 10, 64)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("postgresqlDB parse GetUser: %v", err)
+// 	}
 
-	rs, err := db.database.QueryContext(ctx, `SELECT * FROM accounts WHERE id = $1`, intID)
-	defer rs.Close()
-	if err != nil {
-		return nil, fmt.Errorf("postgresqlDB query GetUser: Get: %v", err)
-	}
+// 	rs, err := db.database.QueryContext(ctx, `SELECT * FROM accounts WHERE id = $1`, intID)
+// 	defer rs.Close()
+// 	if err != nil {
+// 		return nil, fmt.Errorf("postgresqlDB query GetUser: Get: %v", err)
+// 	}
 
-	ready := rs.Next()
-	if ready == false {
-		return nil, fmt.Errorf("postgresqlDB next GetUser: %v", ready)
-	}
+// 	ready := rs.Next()
+// 	if ready == false {
+// 		return nil, fmt.Errorf("postgresqlDB next GetUser: %v", ready)
+// 	}
 
-	a := &Account{}
+// 	a := &Account{}
 
-	err = rs.Scan(&a.ID, &a.Email, &a.Password)
-	if UseString(a.Email) == "" {
-		return nil, fmt.Errorf("postgresqlDB scan GetUser: Get: %v", err)
-	}
+// 	err = rs.Scan(&a.ID, &a.Email, &a.Password)
+// 	if UseString(a.Email) == "" {
+// 		return nil, fmt.Errorf("postgresqlDB scan GetUser: Get: %v", err)
+// 	}
 
-	a.Password = UsePointer("")
-	return a, nil
-}
+// 	a.Password = UsePointer("")
+// 	return a, nil
+// }
 
 func (db *postgresDB) ValidateAccount(ctx context.Context, a *Account) error {
 	// probably refactor
@@ -87,11 +87,17 @@ func (db *postgresDB) ValidateAccount(ctx context.Context, a *Account) error {
 	}
 
 	tempAccount := &Account{}
+	var (
+		tempToken *string
+		tempExp   *time.Time
+	)
 
 	rs, err := db.database.QueryContext(ctx, `SELECT * FROM accounts WHERE email = $1`, UseString(a.Email))
 	defer rs.Close()
 	rs.Next()
-	err = rs.Scan(&tempAccount.ID, &tempAccount.Email, &tempAccount.Password)
+	err = rs.Scan(&tempAccount.ID, &tempAccount.Email, &tempAccount.Password, &tempToken, &tempExp)
+	tempToken = UsePointer("")
+	tempExp = nil
 	if UseString(tempAccount.Email) != "" {
 		return fmt.Errorf("postgresqlDB email ValidateAccount: %v", err)
 	}
@@ -136,6 +142,107 @@ func (db *postgresDB) CreateAccount(ctx context.Context, a *Account) (*Account, 
 	return a, expirationTime, nil
 }
 
+func (db *postgresDB) GetResetToken(ctx context.Context, email string) (string, error) {
+	a := &Account{}
+	var (
+		tempToken *string
+		tempExp   *time.Time
+	)
+
+	rs, err := db.database.QueryContext(ctx, `SELECT * FROM accounts WHERE email = $1`, email)
+	defer rs.Close()
+	rs.Next()
+	err = rs.Scan(&a.ID, &a.Email, &a.Password, &tempToken, &tempExp)
+	tempToken = UsePointer("")
+	tempExp = nil
+	a.Password = UsePointer("")
+	if UseString(a.Email) == "" {
+		return "", fmt.Errorf("postgresqlDB email GetResetToken: %v", err)
+	}
+
+	expirationTime := time.Now().Add(60 * time.Minute)
+
+	tk := &Token{
+		UserID: a.ID,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), tk)
+	tokenString, err := token.SignedString([]byte(os.Getenv("BOOKSHELF_RESET_TOKEN_PASSWORD")))
+	if err != nil {
+		return "", fmt.Errorf("postgresqlDB sign GetResetToken: %v", err)
+	}
+
+	_, err = db.database.ExecContext(ctx, `UPDATE accounts SET reset_token = $1, token_expiration
+		= $2 where email = $3`, tokenString, expirationTime, UseString(a.Email))
+	if err != nil {
+		return "", fmt.Errorf("postgresqlDB exec GetResetToken: %v", err)
+	}
+
+	return tokenString, nil
+}
+
+func (db *postgresDB) CheckTokenValidity(ctx context.Context, tokenString string, a *Account) error {
+	rs, err := db.database.QueryContext(ctx, `SELECT * FROM accounts WHERE email = $1`, UseString(a.Email))
+	defer rs.Close()
+	var (
+		savedToken      *string
+		tokenExpiration *time.Time
+	)
+	rs.Next()
+	tempAccount := &Account{}
+	err = rs.Scan(&tempAccount.ID, &tempAccount.Email, &tempAccount.Password, &savedToken, &tokenExpiration)
+	tempAccount.Password = UsePointer("")
+	if UseString(tempAccount.Email) == "" {
+		savedToken = UsePointer("")
+		return fmt.Errorf("postgresqlDB email CheckTokenValidity: %v", err)
+	}
+	if tokenExpiration == nil {
+		savedToken = UsePointer("")
+		return fmt.Errorf("postgresqlDB expiration nil CheckTokenValidity: %v", err)
+	}
+	if !time.Now().After(*tokenExpiration) {
+		savedToken = UsePointer("")
+		return fmt.Errorf("postgresqlDB expired CheckTokenValidity: %v", err)
+	}
+	if UseString(savedToken) == "" {
+		savedToken = UsePointer("")
+		return fmt.Errorf("postgresqlDB token empty CheckTokenValidity: %v", err)
+	}
+	if UseString(savedToken) != tokenString {
+		savedToken = UsePointer("")
+		return fmt.Errorf("postgresqlDB token incorrect CheckTokenValidity: %v", err)
+	}
+	return nil
+}
+
+func (db *postgresDB) RemoveToken(ctx context.Context, a *Account) error {
+	_, err := db.database.ExecContext(ctx, `UPDATE accounts SET reset_token = $1, token_expiration
+		= $2 where email = $3`, "", time.Now(), UseString(a.Email))
+	if err != nil {
+		return fmt.Errorf("postgresqlDB exec RemoveToken: %v", err)
+	}
+	return nil
+}
+
+func (db *postgresDB) UpdatePassword(ctx context.Context, a *Account) error {
+	// probably refactor
+	if len(UseString(a.Password)) < 6 {
+		return fmt.Errorf("postgresqlDB password UpdatePassword")
+	}
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(UseString(a.Password)), bcrypt.DefaultCost)
+	a.Password = UsePointer(string(hashedPassword))
+
+	_, err = db.database.ExecContext(ctx, `UPDATE accounts SET password = $1 where email = $2`,
+		UseString(a.Password), UseString(a.Email))
+	if err != nil {
+		return fmt.Errorf("postgresqlDB exec UpdatePassword: %v", err)
+	}
+	a.Password = UsePointer("")
+	return nil
+}
+
 func (db *postgresDB) LoginAccount(ctx context.Context, email string, password string) (*Account, time.Time, error) {
 
 	rs, err := db.database.QueryContext(ctx, `SELECT * FROM accounts WHERE email = $1`, email)
@@ -150,8 +257,14 @@ func (db *postgresDB) LoginAccount(ctx context.Context, email string, password s
 	}
 
 	a := &Account{}
+	var (
+		tempToken *string
+		tempExp   *time.Time
+	)
 
-	err = rs.Scan(&a.ID, &a.Email, &a.Password)
+	err = rs.Scan(&a.ID, &a.Email, &a.Password, &tempToken, &tempExp)
+	tempToken = UsePointer("")
+	tempExp = nil
 	if UseString(a.Email) == "" {
 		return nil, time.Now(), fmt.Errorf("postgresqlDB scan LoginAccount: %v", err)
 	}

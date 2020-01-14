@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -30,9 +31,23 @@ var JwtAuthentication = func(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestPath := r.URL.Path
 
-		if requestPath == "/new" || requestPath == "/login" || requestPath == "/assets/style.css" || requestPath == "/logout" {
-			next.ServeHTTP(w, r)
-			return
+		noAuthPaths := []string{
+			"/login",
+			"/assets/style.css",
+			"/logout",
+			"/new",
+			"/forgot",
+			"/reset",
+		}
+
+		regex := regexp.MustCompile(`^/reset/+[A-Za-z0-9]+.+[A-Za-z0-9]+.+[A-Za-z0-9]*$`)
+		for _, value := range noAuthPaths {
+
+			match := regex.Find([]byte(requestPath))
+			if value == requestPath || string(match) == requestPath {
+				next.ServeHTTP(w, r)
+				return
+			}
 		}
 
 		c, err := r.Cookie("token")
@@ -70,7 +85,7 @@ var JwtAuthentication = func(next http.Handler) http.Handler {
 			return
 		}
 
-		fmt.Printf("User %v", token.UserID)
+		// fmt.Printf("User %v", token.UserID)
 
 		expirationTime := time.Now().Add(5 * time.Minute)
 		token.ExpiresAt = expirationTime.Unix()

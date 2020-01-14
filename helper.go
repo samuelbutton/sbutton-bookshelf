@@ -64,10 +64,7 @@ func (b *Bookshelf) removeCookie(w http.ResponseWriter, r *http.Request) error {
 		Value:   "",
 		Expires: time.Now(),
 	})
-	c, _ := r.Cookie("token")
-	fmt.Println(c.Value)
 	b.userLoggedIn = false
-	// http.Redirect(w, r, "/login", http.StatusFound)
 	return nil
 }
 
@@ -99,6 +96,22 @@ func (b *Bookshelf) accountFromForm(r *http.Request) (*Account, error) {
 		Password: UsePointer(r.FormValue("password")),
 	}
 	return account, nil
+}
+
+func (b *Bookshelf) tokenFromForm(r *http.Request) (string, error) {
+	return r.FormValue("token"), nil
+}
+
+func (b *Bookshelf) emailFromForm(r *http.Request) (string, error) {
+	return r.FormValue("email"), nil
+}
+
+func (b *Bookshelf) checkForToken(r *http.Request) (string, error) {
+	tokenString := mux.Vars(r)["token"]
+	if tokenString == "" {
+		return "", errors.New("cannot reset with no identification")
+	}
+	return tokenString, nil
 }
 
 func (b *Bookshelf) uploadFileFromForm(ctx context.Context, r *http.Request) (url string, err error) {
