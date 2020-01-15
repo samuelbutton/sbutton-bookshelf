@@ -1,12 +1,11 @@
-  <h3>Books</h3>
-  <a href="/books/add" class="btn btn-success btn-sm">
-    <i class="glyphicon glyphicon-plus"></i>
+  <h3 class="section-title">Books</h3>
+  <a href="/books/add" class="btn btn-success btn-sm btn-addMargin">
     <span>Add book</span>
   </a>
   
   {{range .}}
-  <div class="media">
-    <div class="media-left">
+  <div class="media mb-3">
+    <div class="media-left mr-3">
       <img class="book-image" src="{{if .ImageURL}}{{.ImageURL}}{{else}}https://placekitten.com/g/200/300{{end}}">
     </div>
     <div class="media-body">

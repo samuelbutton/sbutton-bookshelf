@@ -21,6 +21,20 @@ a:hover {
   text-decoration: underline;
 }
 
+.center-text {
+  text-align: center;
+}
+
+.section-title {
+  margin-top: .5em;
+  margin-bottom: .5em;
+}
+
+.btn-addMargin {
+  margin-top: .5em;
+  margin-bottom: .5em;
+}
+
 form {
   height: calc(100% - 10px);
 }
@@ -50,6 +64,7 @@ a.button {
     list-style: none;
     align-self: center;
     margin-top: 1em;
+    margin-left: .5em;
 }
 
 .metadata {

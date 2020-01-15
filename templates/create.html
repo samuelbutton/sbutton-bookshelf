@@ -1,4 +1,4 @@
-<h3>Create Account</h3>
+<h3 class="section-title">Create Account</h3>
   
 <form method="post" enctype="multipart/form-data" action="/new">
   <div class="form-group">
@@ -8,6 +8,9 @@
   <div class="form-group">
     <label for="password">Password</label>
     <input class="form-control" name="password" id="password" value="" required maxlength="255" type="password">
+    <small id="passwordHelpBlock" class="form-text text-muted">
+      Your password must be at least 8 characters long.
+    </small>
   </div>
   <div class="form-group">
     <label for="confirm_password">Confirm Password</label>

@@ -59,11 +59,14 @@ func (b *Bookshelf) setCookieAndRedirect(w http.ResponseWriter, r *http.Request,
 }
 
 func (b *Bookshelf) removeCookie(w http.ResponseWriter, r *http.Request) error {
-	http.SetCookie(w, &http.Cookie{
-		Name:    "token",
-		Value:   "",
-		Expires: time.Now(),
-	})
+	c := http.Cookie{
+		Name:   "token",
+		MaxAge: -1}
+	http.SetCookie(w, &c)
+	fmt.Println(c.MaxAge)
+	// previous problems with no changes to cookie realized
+	// functional after checking that MaxAge of the cookie was less than 0
+	// maybe need to flush cookie changes in some way
 	b.userLoggedIn = false
 	return nil
 }

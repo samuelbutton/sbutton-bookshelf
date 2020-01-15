@@ -38,7 +38,7 @@ func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e := fn(w, r); e != nil {
 		fmt.Fprintf(e.b.logWriter, "Handler error (reported to Error Reporting): status code: %d, message: %s, underlying err: %+v\n", e.code, e.message, e.err)
 		w.WriteHeader(e.code)
-		fmt.Fprint(w, e.message)
+		// fmt.Fprint(w, e.message)
 
 		e.b.errorClient.Report(errorreporting.Entry{
 			Error: e.err,
@@ -58,4 +58,8 @@ func (b *Bookshelf) appErrorf(r *http.Request, err error, format string, v ...in
 		b:       b,
 		stack:   debug.Stack(),
 	}
+}
+
+func (b *Bookshelf) addMessage(message string) {
+	b.Messages = append(b.Messages, message)
 }

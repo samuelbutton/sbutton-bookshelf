@@ -31,14 +31,20 @@ func (tmpl *appTemplate) Execute(b *Bookshelf, w http.ResponseWriter, r *http.Re
 	d := struct {
 		Data     interface{}
 		LoggedIn bool
+		Messages []string
 	}{
 		Data:     data,
 		LoggedIn: b.userLoggedIn,
+		Messages: b.Messages,
 	}
 
 	if err := tmpl.t.Execute(w, d); err != nil {
+		b.addMessage("Could not load page, please try again!")
+		http.Redirect(w, r, "/books", http.StatusFound)
 		return b.appErrorf(r, err, "could not write template: %v", err)
 	}
+
+	b.Messages = nil
 
 	return nil
 }

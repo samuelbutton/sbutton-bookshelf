@@ -82,7 +82,7 @@ func (db *postgresDB) ValidateAccount(ctx context.Context, a *Account) error {
 	}
 
 	// probably refactor
-	if len(UseString(a.Password)) < 6 {
+	if len(UseString(a.Password)) < 8 {
 		return fmt.Errorf("postgresqlDB password ValidateAccount")
 	}
 
@@ -99,7 +99,7 @@ func (db *postgresDB) ValidateAccount(ctx context.Context, a *Account) error {
 	tempToken = UsePointer("")
 	tempExp = nil
 	if UseString(tempAccount.Email) != "" {
-		return fmt.Errorf("postgresqlDB email ValidateAccount: %v", err)
+		return fmt.Errorf("Email already in use!: %v", err)
 	}
 
 	return nil
@@ -107,7 +107,7 @@ func (db *postgresDB) ValidateAccount(ctx context.Context, a *Account) error {
 
 func (db *postgresDB) CreateAccount(ctx context.Context, a *Account) (*Account, time.Time, error) {
 	if err := db.ValidateAccount(ctx, a); err != nil {
-		return nil, time.Now(), err
+		return nil, time.Now().Local(), err
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(UseString(a.Password)), bcrypt.DefaultCost)
@@ -116,14 +116,14 @@ func (db *postgresDB) CreateAccount(ctx context.Context, a *Account) (*Account, 
 	err = db.database.QueryRow(`INSERT INTO accounts(email, password)
 		VALUES($1, $2) RETURNING id`, UseString(a.Email), UseString(a.Password)).Scan(&a.ID)
 	if err != nil {
-		return nil, time.Now(), fmt.Errorf("postgresqlDB exec CreateAccount: %v", err)
+		return nil, time.Now().Local(), fmt.Errorf("Could not create account!: %v", err)
 	}
 
 	if a.ID <= 0 {
-		return nil, time.Now(), fmt.Errorf("postgresqlDB id CreateAccount: %v", err)
+		return nil, time.Now().Local(), fmt.Errorf("Could not create account!: %v", err)
 	}
 
-	expirationTime := time.Now().Add(5 * time.Minute)
+	expirationTime := time.Now().Local().Add(5 * time.Minute)
 	tk := &Token{
 		UserID: a.ID,
 		StandardClaims: jwt.StandardClaims{
@@ -133,7 +133,7 @@ func (db *postgresDB) CreateAccount(ctx context.Context, a *Account) (*Account, 
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), tk)
 	tokenString, err := token.SignedString([]byte(os.Getenv("BOOKSHELF_TOKEN_PASSWORD")))
 	if err != nil {
-		return nil, time.Now(), fmt.Errorf("postgresqlDB sign CreateAccount: %v", err)
+		return nil, time.Now().Local(), fmt.Errorf("Please log in with new account!: %v", err)
 	}
 	a.Token = UsePointer(tokenString)
 
@@ -160,7 +160,7 @@ func (db *postgresDB) GetResetToken(ctx context.Context, email string) (string, 
 		return "", fmt.Errorf("postgresqlDB email GetResetToken: %v", err)
 	}
 
-	expirationTime := time.Now().Add(60 * time.Minute)
+	expirationTime := time.Now().Local().Add(60 * time.Minute)
 
 	tk := &Token{
 		UserID: a.ID,
@@ -202,7 +202,7 @@ func (db *postgresDB) CheckTokenValidity(ctx context.Context, tokenString string
 		savedToken = UsePointer("")
 		return fmt.Errorf("postgresqlDB expiration nil CheckTokenValidity: %v", err)
 	}
-	if !time.Now().After(*tokenExpiration) {
+	if time.Now().Local().After(*tokenExpiration) {
 		savedToken = UsePointer("")
 		return fmt.Errorf("postgresqlDB expired CheckTokenValidity: %v", err)
 	}
@@ -219,7 +219,7 @@ func (db *postgresDB) CheckTokenValidity(ctx context.Context, tokenString string
 
 func (db *postgresDB) RemoveToken(ctx context.Context, a *Account) error {
 	_, err := db.database.ExecContext(ctx, `UPDATE accounts SET reset_token = $1, token_expiration
-		= $2 where email = $3`, "", time.Now(), UseString(a.Email))
+		= $2 where email = $3`, "", time.Now().Local(), UseString(a.Email))
 	if err != nil {
 		return fmt.Errorf("postgresqlDB exec RemoveToken: %v", err)
 	}
@@ -228,7 +228,7 @@ func (db *postgresDB) RemoveToken(ctx context.Context, a *Account) error {
 
 func (db *postgresDB) UpdatePassword(ctx context.Context, a *Account) error {
 	// probably refactor
-	if len(UseString(a.Password)) < 6 {
+	if len(UseString(a.Password)) < 8 {
 		return fmt.Errorf("postgresqlDB password UpdatePassword")
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(UseString(a.Password)), bcrypt.DefaultCost)
@@ -248,12 +248,12 @@ func (db *postgresDB) LoginAccount(ctx context.Context, email string, password s
 	rs, err := db.database.QueryContext(ctx, `SELECT * FROM accounts WHERE email = $1`, email)
 	defer rs.Close()
 	if err != nil {
-		return nil, time.Now(), fmt.Errorf("postgresqlDB query LoginAccount: %v", err)
+		return nil, time.Now().Local(), fmt.Errorf("Server error, please try again!: %v", err)
 	}
 
 	ready := rs.Next()
 	if ready == false {
-		return nil, time.Now(), fmt.Errorf("postgresqlDB next LoginAccount: %v", ready)
+		return nil, time.Now().Local(), fmt.Errorf("Invalid credentials, please try again!: %v", ready)
 	}
 
 	a := &Account{}
@@ -266,20 +266,20 @@ func (db *postgresDB) LoginAccount(ctx context.Context, email string, password s
 	tempToken = UsePointer("")
 	tempExp = nil
 	if UseString(a.Email) == "" {
-		return nil, time.Now(), fmt.Errorf("postgresqlDB scan LoginAccount: %v", err)
+		return nil, time.Now().Local(), fmt.Errorf("Invalid credentials, please try again!: %v", err)
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(UseString(a.Password)), []byte(password))
 	if err != nil {
 		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return nil, time.Now(), fmt.Errorf("postgresqlDB hash mismatch LoginAccount: %v", err)
+			return nil, time.Now().Local(), fmt.Errorf("Invalid credentials, please try again!: %v", err)
 		}
-		return nil, time.Now(), fmt.Errorf("postgresqlDB pass LoginAccount: %v", err)
+		return nil, time.Now().Local(), fmt.Errorf("Server error, please try again!: %v", err)
 	}
 
 	a.Password = UsePointer("")
 
-	expirationTime := time.Now().Add(5 * time.Minute)
+	expirationTime := time.Now().Local().Add(5 * time.Minute)
 	tk := &Token{
 		UserID: a.ID,
 		StandardClaims: jwt.StandardClaims{
@@ -289,7 +289,7 @@ func (db *postgresDB) LoginAccount(ctx context.Context, email string, password s
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), tk)
 	tokenString, err := token.SignedString([]byte(os.Getenv("BOOKSHELF_TOKEN_PASSWORD")))
 	if err != nil {
-		return nil, time.Now(), fmt.Errorf("postgresqlDB sign LoginAccount: %v", err)
+		return nil, time.Now().Local(), fmt.Errorf("Server error, please try again!: %v", err)
 	}
 	a.Token = UsePointer(tokenString)
 

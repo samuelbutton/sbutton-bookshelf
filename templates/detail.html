@@ -1,12 +1,12 @@
-  <h3>Book</h3>
+  <h3 class="section-title">Book</h3>
   
   <div class="btn-group">
     <form action="/books/{{.ID}}:delete" method="post">
-      <a href="/books/{{.ID}}/edit" class="btn btn-primary btn-sm">
+      <a href="/books/{{.ID}}/edit" class="btn btn-primary btn-sm btn-addMargin mr-2">
         <i class="glyphicon glyphicon-edit"></i>
         <span>Edit book</span>
       </a>
-      <button class="btn btn-danger btn-sm">
+      <button class="btn btn-danger btn-sm btn-addMargin">
         <i class="glyphicon glyphicon-trash"></i>
         <span>Delete book</span>
       </button>
@@ -14,7 +14,7 @@
   </div>
   
   <div class="media">
-    <div class="media-left">
+    <div class="media-left mr-3">
       <img class="book-image" src="{{if .ImageURL}}{{.ImageURL}}{{else}}https://placekitten.com/g/200/300{{end}}">
     </div>
     <div class="media-body">

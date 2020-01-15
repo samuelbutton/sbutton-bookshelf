@@ -26,7 +26,7 @@ type Account struct {
 }
 
 // JwtAuthentication is used for all requests except new and login
-var JwtAuthentication = func(next http.Handler) http.Handler {
+func (b *Bookshelf) jwtAuthentication(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestPath := r.URL.Path
@@ -87,7 +87,7 @@ var JwtAuthentication = func(next http.Handler) http.Handler {
 
 		// fmt.Printf("User %v", token.UserID)
 
-		expirationTime := time.Now().Add(5 * time.Minute)
+		expirationTime := time.Now().Local().Add(5 * time.Minute)
 		token.ExpiresAt = expirationTime.Unix()
 		newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, token)
 		tokenString, err := newToken.SignedString([]byte(os.Getenv("BOOKSHELF_TOKEN_PASSWORD")))

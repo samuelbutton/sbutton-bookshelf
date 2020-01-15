@@ -45,6 +45,7 @@ type BookDatabase interface {
 // image (files in bucket)
 type Bookshelf struct {
 	DB                BookDatabase
+	Messages          []string
 	account           *Account
 	userLoggedIn      bool
 	StorageBucket     *storage.BucketHandle
@@ -79,6 +80,7 @@ func NewBookshelf(db BookDatabase) (*Bookshelf, error) {
 		logWriter:         os.Stderr,
 		errorClient:       errorClient,
 		DB:                db,
+		Messages:          nil,
 		userLoggedIn:      false,
 		StorageBucketName: bucketName,
 		StorageBucket:     storageClient.Bucket(bucketName),

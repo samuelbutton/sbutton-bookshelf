@@ -13,6 +13,7 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/lib/pq v1.3.0
 	golang.org/x/crypto v0.0.0-20200108215511-5d647ca15757
+	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	google.golang.org/api v0.14.0
 	google.golang.org/appengine v1.6.5 // indirect
 	rsc.io/quote v1.5.2
