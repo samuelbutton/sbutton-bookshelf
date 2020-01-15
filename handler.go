@@ -16,14 +16,13 @@ import (
 const StaticDir = "/assets/"
 
 var (
-	listTmpl        = parseTemplate("list.html")
-	editTmpl        = parseTemplate("edit.html")
-	detailTmpl      = parseTemplate("detail.html")
-	loginTmpl       = parseTemplate("login.html")
-	createTmpl      = parseTemplate("create.html")
-	forgotTmpl      = parseTemplate("forgot.html")
-	resetTmpl       = parseTemplate("reset.html")
-	bookshelfDomain = "http://localhost:3000"
+	listTmpl   = parseTemplate("list.html")
+	editTmpl   = parseTemplate("edit.html")
+	detailTmpl = parseTemplate("detail.html")
+	loginTmpl  = parseTemplate("login.html")
+	createTmpl = parseTemplate("create.html")
+	forgotTmpl = parseTemplate("forgot.html")
+	resetTmpl  = parseTemplate("reset.html")
 )
 
 func (b *Bookshelf) registerHandlers() {
@@ -266,7 +265,7 @@ func (b *Bookshelf) forgotPasswordHandler(w http.ResponseWriter, r *http.Request
 		return b.appErrorf(r, err, "forgotPassword reset token Error: %v", err)
 	}
 
-	resetLink := fmt.Sprintf("%v/reset/%v", bookshelfDomain, tokenString)
+	resetLink := fmt.Sprintf("%v/reset/%v", os.Getenv("BOOKSHELF_DOMAIN"), tokenString)
 	from := "sbutton-bookshelf"
 	mime := "MIME-version: 1.0;\nContent-Type: text/plain; charset=\"UTF-8\";\n\n"
 	subject := "Subject: " + "Bookshelf Password Reset\n"

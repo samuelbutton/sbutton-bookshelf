@@ -85,8 +85,6 @@ func (b *Bookshelf) jwtAuthentication(next http.Handler) http.Handler {
 			return
 		}
 
-		// fmt.Printf("User %v", token.UserID)
-
 		expirationTime := time.Now().Local().Add(5 * time.Minute)
 		token.ExpiresAt = expirationTime.Unix()
 		newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, token)
